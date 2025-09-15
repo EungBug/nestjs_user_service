@@ -8,6 +8,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AttendanceController } from './attendance/attendance.controller';
 import { AttendanceService } from './attendance/attendance.service';
 import { AttendanceModule } from './attendance/attendance.module';
+import { NotificationModule } from './notification/notification.module';
 
 @Module({
   imports: [
@@ -15,7 +16,8 @@ import { AttendanceModule } from './attendance/attendance.module';
     PrismaModule,
     UsersModule,
     AuthModule,
-    AttendanceModule
+    AttendanceModule,
+    NotificationModule
   ],
   controllers: [AppController, AttendanceController],
   providers: [AppService, AttendanceService],

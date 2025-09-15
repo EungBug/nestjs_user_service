@@ -2,10 +2,16 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { AttendanceType, Prisma } from '@prisma/client';
 import { PrismaService } from 'prisma/prisma.service';
 import { DEFAULT_TZ, now, toLocalDate } from './lib/date.util';
+import { DiscordWebhookService } from 'src/notification/discord-webhook.service';
+import { UsersService } from 'src/users/users.service';
 
 @Injectable()
 export class AttendanceService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly users: UsersService,
+    private readonly discord: DiscordWebhookService,
+  ) {}
 
   // 오늘 근태 조회
   async getToday(userId: number) {
@@ -80,6 +86,12 @@ export class AttendanceService {
         },
       });
 
+      // 디스코드 알림 - 웹훅
+      const user = await this.users.findById(userId);
+      if (user) {
+        this.discord.sendClockIn(user.name, occurredAt);
+      }
+
       return created;
     } catch (e) {
       if (this.isUniqueError(e)) {
@@ -94,10 +106,15 @@ export class AttendanceService {
     const occurredAt = now(DEFAULT_TZ).toDate();
     const localDate = toLocalDate(occurredAt, DEFAULT_TZ);
 
-    const already = await this.already(userId, 'CLOCK_OUT', localDate);
+    const todayRecord = await this.getToday(userId);
 
-    if (already) {
+    if (todayRecord.clockOut) {
       throw new BadRequestException('오늘 퇴근 기록이 이미 존재합니다.');
+    }
+
+    // 오늘 출근 기록이 있는 경우 퇴근 가능
+    if (!todayRecord.clockIn) {
+      throw new BadRequestException('오늘 출근 기록이 존재하지 않습니다.');
     }
 
     try {
@@ -109,6 +126,12 @@ export class AttendanceService {
           localDate,
         },
       });
+
+      // 디스코드 알림 - 웹훅
+      const user = await this.users.findById(userId);
+      if (user) {
+        this.discord.sendClockOut(user.name, occurredAt);
+      }
 
       return created;
     } catch (e) {
