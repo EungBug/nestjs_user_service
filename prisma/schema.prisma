@@ -13,11 +13,33 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-
+// 사용자(직원)
 model User {
-  id        Int        @id @default(autoincrement())
-  createdAt DateTime   @default(now())
-  email     String     @unique
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  email     String   @unique
   name      String
   password  String
+
+  attendanceHistories AttendanceHistory[]
+}
+
+enum AttendanceType {
+  CLOCK_IN // 출근
+  CLOCK_OUT // 퇴근
+}
+
+// 출퇴근
+model AttendanceHistory {
+  id             Int            @id @default(autoincrement())
+  userId         Int
+  occurredAt     DateTime
+  createdAt      DateTime       @default(now())
+  attendanceType AttendanceType
+  localDate      String
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, attendanceType, localDate])
+  @@index([userId, occurredAt])
 }
