@@ -15,7 +15,7 @@ datasource db {
 
 // 사용자(직원)
 model User {
-  id        Int      @id @default(autoincrement())
+  id        BigInt   @id @default(autoincrement())
   createdAt DateTime @default(now())
   email     String   @unique
   name      String
@@ -31,8 +31,8 @@ enum AttendanceType {
 
 // 출퇴근
 model AttendanceHistory {
-  id             Int            @id @default(autoincrement())
-  userId         Int
+  id             BigInt         @id @default(autoincrement())
+  userId         BigInt
   occurredAt     DateTime
   createdAt      DateTime       @default(now())
   attendanceType AttendanceType
