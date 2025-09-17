@@ -6,7 +6,7 @@ async function bootstrap() {
   const origin =
     process.env.NODE_ENV === 'dev'
       ? 'http://localhost:5173'
-      : 'https://example.com/';
+      : 'https://ecocow-attendance.netlify.app/';
 
   const app = await NestFactory.create(AppModule);
   // ValidationPipe 켜기
@@ -15,7 +15,7 @@ async function bootstrap() {
   );
 
   app.enableCors({
-    origin: [origin],
+    origin: [origin, 'https://ecocow-attendance.netlify.app'],
     allowedHeaders: [
       'Content-Type',
       'Origin',
