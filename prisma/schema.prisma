@@ -21,7 +21,11 @@ model User {
   name      String
   password  String
 
-  attendanceHistories AttendanceHistory[]
+  hiredAt        DateTime
+
+  attendanceHistories  AttendanceHistory[]
+  annualLeaveHistories AnnualLeaveHistory[]
+  annualLeaveSummaries AnnualLeaveSummary[]
 }
 
 enum AttendanceType {
@@ -42,4 +46,52 @@ model AttendanceHistory {
 
   @@unique([userId, attendanceType, localDate])
   @@index([userId, occurredAt])
+}
+
+enum AnnualLeaveType {
+  ALL_DAY
+  HALF_AM
+  HALF_PM
+}
+
+// 휴가
+model AnnualLeaveHistory {
+  id              BigInt          @id @default(autoincrement())
+  userId          BigInt
+  startDT         DateTime
+  endDT           DateTime
+  createdAt       DateTime        @default(now())
+  annualLeaveType AnnualLeaveType
+  localDate       String
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, annualLeaveType, localDate])
+  @@index([userId, localDate])
+}
+
+
+// 연도별 휴가 요약(할당/이월/사용 집계)
+model AnnualLeaveSummary {
+  id               BigInt   @id @default(autoincrement())
+  userId           BigInt
+  year             Int                      // 예: 2025
+  // 총 부여 일수(회사 정책상 기본 부여분)
+  entitlementDays  Decimal   @db.Decimal(5, 2)
+  // 이월 일수(있다면)
+  carriedOverDays  Decimal   @db.Decimal(5, 2) @default(0)
+  // 추가 지급(보상휴가 등 정책상 가변분, 없으면 0)
+  extraGrantedDays Decimal   @db.Decimal(5, 2) @default(0)
+  // 사용 일수(누적). HALF_AM/HALF_FM는 0.5, ALL_DAY는 1.0로 반영
+  usedDays         Decimal   @db.Decimal(5, 2) @default(0)
+
+  lastAccruedMonth String?
+
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, year])
+  @@index([userId, year])
 }

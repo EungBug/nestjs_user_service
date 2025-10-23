@@ -27,6 +27,7 @@ export class AuthService {
       email: dto.email,
       password: hash,
       name: dto.name,
+      hiredAt: dto.hiredAt,
     });
 
     return {

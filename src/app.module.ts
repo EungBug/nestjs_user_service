@@ -9,6 +9,7 @@ import { AttendanceController } from './attendance/attendance.controller';
 import { AttendanceService } from './attendance/attendance.service';
 import { AttendanceModule } from './attendance/attendance.module';
 import { NotificationModule } from './notification/notification.module';
+import { AnnualLeaveModule } from './annual-leave/annual-leave.module';
 
 @Module({
   imports: [
@@ -17,7 +18,8 @@ import { NotificationModule } from './notification/notification.module';
     UsersModule,
     AuthModule,
     AttendanceModule,
-    NotificationModule
+    NotificationModule,
+    AnnualLeaveModule
   ],
   controllers: [AppController, AttendanceController],
   providers: [AppService, AttendanceService],
