@@ -9,7 +9,7 @@ import dayjs from 'dayjs';
 import { PrismaService } from 'prisma/prisma.service';
 import { KST } from 'src/common/utils/time';
 import { UsersService } from 'src/users/users.service';
-import { DEFAULT_TZ, toLocalDate } from './../attendance/lib/date.util';
+import { DEFAULT_TZ } from './../attendance/lib/date.util';
 import { AnnualLeaveType } from './dto/annual-leave.dto';
 import { RegisterLeaveDto } from './dto/request/register-annual-leave.dto';
 import { LeaveHistoryItemDto } from './dto/response/annual-leave.response.dto';
@@ -23,11 +23,18 @@ export class AnnualLeaveService {
 
   // 날짜 기준 목록 조회
   async getAllByDate(date: string) {
-    const localDate = toLocalDate(dayjs(date).tz(DEFAULT_TZ).toDate());
+    const baseDate = dayjs(date).tz(DEFAULT_TZ);
+    const monthStart = baseDate.startOf('month').format('YYYY-MM-DD'); // 예: 2025-10-01
+    const monthEnd = baseDate.endOf('month').format('YYYY-MM-DD'); // 예: 2025-10-31
 
     const res = await this.prisma.annualLeaveHistory.findMany({
-      where: { localDate: localDate },
-      orderBy: [{ startDT: 'asc' }],
+      where: {
+        localDate: {
+          gte: monthStart,
+          lte: monthEnd,
+        },
+      },
+      orderBy: [{ localDate: 'asc' }, { startDT: 'asc' }, { createdAt: 'asc' }],
       select: {
         id: true,
         userId: true,
@@ -63,11 +70,11 @@ export class AnnualLeaveService {
     if (!summary) {
       return {
         year: y,
-        entitlementDays: '0.00',
-        carriedOverDays: '0.00',
-        extraGrantedDays: '0.00',
-        usedDays: '0.00',
-        remainingDays: '0.00',
+        entitlementDays: 0,
+        carriedOverDays: 0,
+        extraGrantedDays: 0,
+        usedDays: 0,
+        remainingDays: 0,
       };
     }
 
@@ -82,11 +89,11 @@ export class AnnualLeaveService {
 
     return {
       year: y,
-      entitlementDays: entitlementDays.toString(),
-      carriedOverDays: carriedOverDays.toString(),
-      extraGrantedDays: extraGrantedDays.toString(),
-      usedDays: usedDays.toString(),
-      remainingDays: remainingDays.toFixed(2),
+      entitlementDays: entitlementDays.toNumber(),
+      carriedOverDays: carriedOverDays.toNumber(),
+      extraGrantedDays: extraGrantedDays.toNumber(),
+      usedDays: usedDays.toNumber(),
+      remainingDays: remainingDays.toNumber(),
     };
   }
 
@@ -102,6 +109,40 @@ export class AnnualLeaveService {
 
     return this.prisma.$transaction(async (tx) => {
       const { start, end } = this.buildPeriodKST(requestDate, annualLeaveType);
+
+      // 잔여 연차 확인
+      const sum = await tx.annualLeaveSummary.findUnique({
+        where: { userId_year: { userId: userId, year } },
+        select: {
+          entitlementDays: true,
+          carriedOverDays: true,
+          extraGrantedDays: true,
+          usedDays: true,
+        },
+      });
+
+      if (!sum) {
+        throw new BadRequestException(
+          '잔여 휴가가 부족합니다. (휴가 부여 내역 없음)',
+        );
+      }
+
+      const affected = await tx.$executeRawUnsafe<number>(
+        `
+        UPDATE \`AnnualLeaveSummary\`
+        SET usedDays = usedDays + ?
+        WHERE userId = ? AND year = ?
+          AND (entitlementDays + carriedOverDays + extraGrantedDays - usedDays) >= ?
+        `,
+        usedInc,
+        userId.toString(),
+        year,
+        usedInc,
+      );
+
+      if (affected === 0) {
+        throw new BadRequestException('잔여 휴가가 부족합니다.');
+      }
 
       // 중복 등록 검사
       await tx.annualLeaveHistory
